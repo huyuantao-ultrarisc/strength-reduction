@@ -244,18 +244,9 @@ namespace
 
     virtual bool runOnFunction(Function &F)
     {
-
-      Module *module = F.getParent();
-
-      // 先做个死代码消除
-      legacy::FunctionPassManager FPM(module);
-      FPM.add(createDeadCodeEliminationPass());
-      FPM.doInitialization();
-      FPM.run(F);
-      FPM.doFinalization();
-
       // 获取循环信息 ： GetLoopInformations
       LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+      // 对每个循环做优化
       for (auto *L : LI)
       {
         // 计算循环中所有的 induction variable
@@ -329,12 +320,29 @@ namespace
         for (auto &[old_val, new_phi] : phi_map)
         {
           old_val->replaceAllUsesWith(new_phi);
+          static_cast<Instruction *>(old_val)->eraseFromParent();
+        }
+        // 有些中间的 induction variable 其实可以消除，比如 j = i*2-3  中会生成一个 i*2的induction variable.
+        for (auto &[old_val, new_phi] : phi_map)
+        {
+          if (new_phi->getNumUses() == 1)
+          {
+            Value *ind_var = nullptr;
+            for (int i = 0; i < new_phi->getNumIncomingValues(); i++)
+            {
+              if (new_phi->getIncomingBlock(i) != L->getLoopPreheader())
+                ind_var = new_phi->getIncomingValue(i);
+            }
+            // 一个孤立的2结点环，他们互相依赖但是没什么作用，应该直接杀掉
+            if (ind_var->getNumUses() == 1)
+            {
+              static_cast<Instruction*>(ind_var)->eraseFromParent();
+              new_phi->eraseFromParent();
+            }
+          }
         }
       }
-      FPM.add(createDeadCodeEliminationPass());
-      FPM.doInitialization();
-      FPM.run(F);
-      FPM.doFinalization();
+
       return true;
     };
   };

@@ -8,14 +8,15 @@ target triple = "x86_64-pc-linux-gnu"
 ; Function Attrs: noinline nounwind uwtable
 define dso_local i32 @main() #0 {
 entry:
+  %arr = alloca [100 x i32], align 16
   br label %for.cond
 
 for.cond:                                         ; preds = %for.inc, %entry
   %sum.0 = phi i32 [ 0, %entry ], [ %add, %for.inc ]
-  %0 = phi i32 [ 3, %entry ], [ %4, %for.inc ]
-  %1 = phi i32 [ 1, %entry ], [ %5, %for.inc ]
-  %2 = phi i32 [ 3, %entry ], [ %6, %for.inc ]
-  %3 = phi i32 [ 1, %entry ], [ %2, %for.inc ]
+  %0 = phi i32 [ 0, %entry ], [ %4, %for.inc ]
+  %1 = phi i32 [ -2, %entry ], [ %5, %for.inc ]
+  %2 = phi i32 [ 2, %entry ], [ %6, %for.inc ]
+  %3 = phi i32 [ 0, %entry ], [ %2, %for.inc ]
   %cmp = icmp slt i32 %3, 100
   br i1 %cmp, label %for.body, label %for.end
 
@@ -23,6 +24,9 @@ for.body:                                         ; preds = %for.cond
   %4 = add i32 %0, 6
   %5 = add i32 %1, 6
   %add = add nsw i32 %sum.0, %1
+  %idxprom = sext i32 %3 to i64
+  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* %arr, i64 0, i64 %idxprom
+  store i32 %add, i32* %arrayidx, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body
@@ -30,7 +34,9 @@ for.inc:                                          ; preds = %for.body
   br label %for.cond, !llvm.loop !6
 
 for.end:                                          ; preds = %for.cond
-  %call = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([3 x i8], [3 x i8]* @.str, i64 0, i64 0), i32 noundef %sum.0)
+  %arrayidx2 = getelementptr inbounds [100 x i32], [100 x i32]* %arr, i64 0, i64 34
+  %7 = load i32, i32* %arrayidx2, align 8
+  %call = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([3 x i8], [3 x i8]* @.str, i64 0, i64 0), i32 noundef %7)
   ret i32 0
 }
 

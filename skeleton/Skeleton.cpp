@@ -41,6 +41,9 @@ namespace
     };
     // induction variable 表
     map<Value *, InductionInfo> ind_tab;
+    // 一些不需要更新的 ind var比如原来的循环中的 i
+    set<Value *> avoid_update_tab;
+
     void print_ind_tab()
     {
       for (auto [val, info] : ind_tab)
@@ -58,6 +61,8 @@ namespace
     void getIndVarTab(Loop *loop)
     {
       ind_tab.clear();
+      avoid_update_tab.clear();
+
       auto loop_header = loop->getHeader();
       // get blocks name
       set<StringRef> loop_block_names;
@@ -86,7 +91,11 @@ namespace
               ind_info.init = const_val->getSExtValue();
             }
             else if (loop_block_names.count(blk->getName()))
+            {
               ind_info.par = val;
+              // 已经是理想中的结构，无需更新
+              avoid_update_tab.insert(val);
+            }
           }
 
           if (ind_info.init.has_value())
@@ -281,6 +290,8 @@ namespace
             IRBuilder<> phi_builder(&ins);
             for (auto ind : ind_tab)
             {
+              if (avoid_update_tab.count(ind.first) || ind.second.is_phi)
+                continue;
               PHINode *new_phi = phi_builder.CreatePHI(ind.first->getType(), 2);
               auto init_val = ConstantInt::getSigned(ind.first->getType(), *ind.second.init);
               new_phi->addIncoming(init_val, L->getLoopPreheader());
@@ -289,7 +300,6 @@ namespace
             break;
           }
         }
-
         // 在原来的指令后面添加新的指令
         for (auto blk : L->getBlocks())
         {
@@ -299,8 +309,9 @@ namespace
               continue;
             auto &info = ind_tab[&ins];
             BinaryOperator *op = nullptr;
-            if ((op = dyn_cast<BinaryOperator>(&ins)))
+            if ((op = dyn_cast<BinaryOperator>(&ins)) && phi_map.count(op))
             {
+
               IRBuilder<> builder(op);
               auto *phi_node = phi_map[op];
               auto step_node = builder.CreateAdd(phi_node, ConstantInt::getSigned(phi_node->getType(), *info.step));
@@ -308,17 +319,18 @@ namespace
             }
           }
         }
-        for (auto &[val, info] : ind_tab)
-        {
-          if (info.is_phi)
-          {
-            auto update_phi = phi_map[info.par];
-            phi_map[val]->addIncoming(update_phi, body_block);
-          }
-        }
+        // for (auto &[val, info] : ind_tab)
+        // {
+        //   if (info.is_phi)
+        //   {
+        //     auto update_phi = phi_map[info.par];
+        //     phi_map[val]->addIncoming(update_phi, body_block);
+        //   }
+        // }
         //  更新原来的指令
         for (auto &[old_val, new_phi] : phi_map)
         {
+          errs() << "----" << *old_val << " " << *new_phi << "\n";
           old_val->replaceAllUsesWith(new_phi);
           static_cast<Instruction *>(old_val)->eraseFromParent();
         }
@@ -336,7 +348,7 @@ namespace
             // 一个孤立的2结点环，他们互相依赖但是没什么作用，应该直接杀掉
             if (ind_var->getNumUses() == 1)
             {
-              static_cast<Instruction*>(ind_var)->eraseFromParent();
+              static_cast<Instruction *>(ind_var)->eraseFromParent();
               new_phi->eraseFromParent();
             }
           }

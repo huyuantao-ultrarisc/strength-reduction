@@ -319,18 +319,9 @@ namespace
             }
           }
         }
-        // for (auto &[val, info] : ind_tab)
-        // {
-        //   if (info.is_phi)
-        //   {
-        //     auto update_phi = phi_map[info.par];
-        //     phi_map[val]->addIncoming(update_phi, body_block);
-        //   }
-        // }
         //  更新原来的指令
         for (auto &[old_val, new_phi] : phi_map)
         {
-          errs() << "----" << *old_val << " " << *new_phi << "\n";
           old_val->replaceAllUsesWith(new_phi);
           static_cast<Instruction *>(old_val)->eraseFromParent();
         }

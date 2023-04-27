@@ -2,8 +2,7 @@
 
 1. clone repo : `git clone https://github.com/huyuantao-ultrarisc/strength-reduction.git`
 2. `cmake -DLLVM_DIR=/usr/lib/llvm-14/cmake -B build`
-`cmake --build build --parallel 8`
-3. `LLVM_DIR="your llvm cmake path for example /usr/lib/llvm-14/cmake" cmake ..`
+3. `cmake --build build --parallel 8`
 4. and the shared object will be built.
 
 ## How to test

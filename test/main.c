@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <time.h>
-
 int main()
 {
     int s = clock();
@@ -11,6 +10,6 @@ int main()
         sum += j;
     }
     int t = clock();
-    printf("%d, %lf\n",sum,(double)(t-s)/CLOCKS_PER_SEC);
+    printf("%d, %lf\n", sum, (double)(t - s) / CLOCKS_PER_SEC);
     return 0;
 }
